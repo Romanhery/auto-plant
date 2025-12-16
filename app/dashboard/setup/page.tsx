@@ -16,7 +16,12 @@ import {
     BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 
-export default function SetupPage() {
+import { createClient } from "@/lib/supabase/server"
+
+export default async function SetupPage() {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
     return (
         <SidebarProvider
             style={
@@ -26,7 +31,11 @@ export default function SetupPage() {
                 } as React.CSSProperties
             }
         >
-            <AppSidebar variant="inset" />
+            <AppSidebar variant="inset" user={{
+                name: user?.user_metadata?.full_name || "User",
+                email: user?.email || "",
+                avatar: user?.user_metadata?.avatar_url || "",
+            }} />
             <SidebarInset>
                 <header className="flex h-16 shrink-0 items-center gap-2 px-4 border-b">
                     <SidebarTrigger className="-ml-1" />
