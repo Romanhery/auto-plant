@@ -1,15 +1,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { IconTrendingDown, IconTrendingUp, IconActivity } from "@tabler/icons-react"
+import { IconActivity } from "@tabler/icons-react"
 import { createClient } from "@/lib/supabase/client"
 
-import { Badge } from "@/components/ui/badge"
 import {
   Card,
-  CardAction,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -50,7 +47,6 @@ export function SectionCards({ initialData = [] }: { initialData?: SensorReading
   }, [supabase])
 
   const latest = readings[0]
-  const previous = readings[1]
 
   if (!latest) {
     return (
@@ -67,41 +63,19 @@ export function SectionCards({ initialData = [] }: { initialData?: SensorReading
   ]
 
   return (
-    <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
       {metrics.map((metric) => {
         const key = metric.key as keyof SensorReading
         const val = latest[key] as number | null
-        const prevVal = previous ? (previous[key] as number | null) : val
-
-        let trend = 0
-        let isUp = true
-        if (prevVal && val) {
-          trend = ((val - prevVal) / prevVal) * 100
-          isUp = val >= prevVal
-        }
 
         return (
-          <Card key={metric.label} className="@container/card">
+          <Card key={metric.label}>
             <CardHeader>
               <CardDescription>{metric.label}</CardDescription>
-              <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+              <CardTitle className="text-2xl font-semibold tabular-nums">
                 {val?.toFixed(1) ?? "-"} {metric.unit}
               </CardTitle>
-              <CardAction>
-                <Badge variant="outline">
-                  {isUp ? <IconTrendingUp className="mr-1 size-3" /> : <IconTrendingDown className="mr-1 size-3" />}
-                  {Math.abs(trend).toFixed(1)}%
-                </Badge>
-              </CardAction>
             </CardHeader>
-            <CardFooter className="flex-col items-start gap-1.5 text-sm">
-              <div className="line-clamp-1 flex gap-2 font-medium">
-                {isUp ? "Trending up" : "Trending down"} <metric.icon className="size-4" />
-              </div>
-              <div className="text-muted-foreground">
-                Device: {latest.device_id || "Unknown"}
-              </div>
-            </CardFooter>
           </Card>
         )
       })}

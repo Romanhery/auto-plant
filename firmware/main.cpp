@@ -4,33 +4,51 @@
 #include <ArduinoJson.h>
 #include <DHT.h>
 #include <NimBLEDevice.h>
+#include <Preferences.h>
+#include <Adafruit_NeoPixel.h>
 
-// --- Configuration ---
-#define DHTPIN 4      // Digital pin connected to the DHT sensor
-#define DHTTYPE DHT22 // DHT 22 (AM2302)
-#define SOIL_PIN 34   // Analog pin for soil moisture
-#define LED_PIN 2     // Onboard LED
+// --- PINOUT DEFINITIONS ---
+// Be very careful with wiring. 
+#define PIN_DHT         4      // Digital: DHT22 Data
+#define PIN_SOIL        34     // Analog: Capacitive Soil Moisture Sensor
+#define PIN_PUMP        25     // Digital Output: Relay or MOSFET for Pump
+#define PIN_LEDS        27     // Digital Output: WS2812B / Neopixel Data
+#define PIN_ONBOARD_LED 2      // Onboard Status LED
 
-// UUIDs for BLE Provisioning (Must match the React App)
+// --- CONFIGURATION ---
+#define DHTTYPE         DHT22             // DHT 22 (AM2302)
+#define NUM_LEDS        16                // Number of LEDs in your strip/ring
+#define BRIGHTNESS      150               // 0-255
+
+// --- BLE UUIDs (Must match App) ---
 #define SERVICE_UUID           "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
-#define CHARACTERISTIC_UUID_RX "beb5483e-36e1-4688-b7f5-ea07361b26a8" // Receive Credentials
-#define CHARACTERISTIC_UUID_TX "53966527-2b0e-473d-888d-788c26c364c2" // Send Status
+#define CHAR_UUID_RX           "beb5483e-36e1-4688-b7f5-ea07361b26a8" // Receive Credentials
+#define CHAR_UUID_TX           "53966527-2b0e-473d-888d-788c26c364c2" // Send Status
 
-// API Endpoint (Replace with your computer's IP if testing locally, or deployed URL)
-// NOTE: "localhost" won't work on ESP32. Use local IP like "http://192.168.1.100:3000/api/sensors"
-String api_url = "http://YOUR_PC_IP:3000/api/sensors"; 
+// --- GLOBALS ---
+DHT dht(PIN_DHT, DHTTYPE);
+Adafruit_NeoPixel strip(NUM_LEDS, PIN_LEDS, NEO_GRB + NEO_KHZ800);
+Preferences preferences;
 
-// --- Globals ---
-DHT dht(DHTPIN, DHTTYPE);
-NimBLEServer *pServer = NULL;
-NimBLECharacteristic *pTxCharacteristic;
-bool deviceConnected = false;
-bool oldDeviceConnected = false;
-bool wifiConfigured = false;
+// State Variables
 String wifiSSID = "";
 String wifiPassword = "";
+String deviceToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp1YWFvY3F3d2N6d29pcGhpcGhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwMTcxOTEsImV4cCI6MjA3OTU5MzE5MX0.0MQxvseTj797AU0KLbOS9bug31g2mkoIj1GdUml3LvQ";
+String apiUrl = "https://juaaocqwwczwoiphiphj.supabase.co"; 
 
-// --- BLE Callbacks ---
+bool deviceConnected = false;
+bool oldDeviceConnected = false;
+bool shouldSaveConfig = false;
+
+// Hardware State
+bool pumpState = false;
+bool ledState = false;
+
+// BLE Objects
+NimBLEServer *pServer = NULL;
+NimBLECharacteristic *pTxCharacteristic;
+
+// --- BLE CALLBACKS ---
 class MyServerCallbacks : public NimBLEServerCallbacks {
     void onConnect(NimBLEServer* pServer) {
         deviceConnected = true;
@@ -48,39 +66,79 @@ class MyCallbacks : public NimBLECharacteristicCallbacks {
         std::string rxValue = pCharacteristic->getValue();
 
         if (rxValue.length() > 0) {
-            Serial.println("*********");
-            Serial.print("Received Value: ");
-            for (int i = 0; i < rxValue.length(); i++)
-                Serial.print(rxValue[i]);
-            Serial.println();
-            Serial.println("*********");
-
-            // Parse JSON: {"ssid": "MyWiFi", "password": "pass", "api": "http://..."}
-            StaticJsonDocument<200> doc;
+            Serial.println("Received BLE Data");
+            
+            // Expected JSON: {"ssid":"...","pass":"...","token":"...","api":"..."}
+            StaticJsonDocument<512> doc;
             DeserializationError error = deserializeJson(doc, rxValue);
 
             if (!error) {
-                const char* ssid = doc["ssid"];
-                const char* password = doc["password"];
-                if (doc.containsKey("api")) {
-                    const char* url = doc["api"];
-                    api_url = String(url);
-                }
-
-                wifiSSID = String(ssid);
-                wifiPassword = String(password);
-                wifiConfigured = true;
+                if (doc.containsKey("ssid")) wifiSSID = String((const char*)doc["ssid"]);
+                if (doc.containsKey("pass")) wifiPassword = String((const char*)doc["pass"]);
+                if (doc.containsKey("token")) deviceToken = String((const char*)doc["token"]);
+                if (doc.containsKey("api")) apiUrl = String((const char*)doc["api"]);
                 
-                // Notify App
-                pTxCharacteristic->setValue("Credentials Received");
+                shouldSaveConfig = true; // Save to flash in main loop
+                
+                pTxCharacteristic->setValue("Config Received");
                 pTxCharacteristic->notify();
+            } else {
+                Serial.println("JSON Parse Error");
             }
         }
     }
 };
 
-// --- Helper Functions ---
+// --- HELPER FUNCTIONS ---
+
+void saveConfig() {
+    Serial.println("Saving configuration to Flash...");
+    preferences.begin("sage_config", false);
+    preferences.putString("ssid", wifiSSID);
+    preferences.putString("pass", wifiPassword);
+    preferences.putString("token", deviceToken);
+    preferences.putString("api", apiUrl);
+    preferences.end();
+    shouldSaveConfig = false;
+}
+
+void loadConfig() {
+    preferences.begin("sage_config", true);
+    wifiSSID = preferences.getString("ssid", "");
+    wifiPassword = preferences.getString("pass", "");
+    deviceToken = preferences.getString("token", "");
+    apiUrl = preferences.getString("api", "");
+    preferences.end();
+    
+    Serial.println("Loaded Config:");
+    Serial.println("SSID: " + wifiSSID);
+    Serial.println("Token: " + (deviceToken.length() > 0 ? "Set" : "Empty"));
+    Serial.println("API: " + apiUrl);
+}
+
+void setPump(bool on) {
+    pumpState = on;
+    digitalWrite(PIN_PUMP, on ? HIGH : LOW);
+    Serial.print("Pump turned "); Serial.println(on ? "ON" : "OFF");
+}
+
+void setLeds(bool on, uint32_t color = 0) {
+    ledState = on;
+    if (on) {
+        if (color == 0) color = strip.Color(255, 0, 255); // Default "Grow" Purple
+        for(int i=0; i<strip.numPixels(); i++) {
+            strip.setPixelColor(i, color);
+        }
+    } else {
+        strip.clear();
+    }
+    strip.show();
+    Serial.print("LEDs turned "); Serial.println(on ? "ON" : "OFF");
+}
+
 void connectToWiFi() {
+    if (wifiSSID == "") return;
+
     Serial.println("Connecting to WiFi...");
     WiFi.begin(wifiSSID.c_str(), wifiPassword.c_str());
 
@@ -92,119 +150,149 @@ void connectToWiFi() {
     }
 
     if (WiFi.status() == WL_CONNECTED) {
-        Serial.println("");
-        Serial.println("WiFi connected");
-        Serial.println("IP address: ");
+        Serial.println("\nWiFi Connected!");
         Serial.println(WiFi.localIP());
         
         if (deviceConnected) {
-             pTxCharacteristic->setValue("Connected");
-             pTxCharacteristic->notify();
+            String successMsg = "SUCCESS:" + WiFi.macAddress();
+            pTxCharacteristic->setValue(successMsg.c_str());
+            pTxCharacteristic->notify();
         }
+        
+        // Blink Green to show connection
+        setLeds(true, strip.Color(0, 255, 0));
+        delay(1000);
+        setLeds(false);
+        
     } else {
-        Serial.println("WiFi Failed");
+        Serial.println("\nWiFi Failed");
         if (deviceConnected) {
-             pTxCharacteristic->setValue("WiFi Failed");
+             pTxCharacteristic->setValue("ERROR:WiFi Failed");
              pTxCharacteristic->notify();
         }
     }
 }
 
+// --- SETUP ---
 void setup() {
     Serial.begin(115200);
-    pinMode(LED_PIN, OUTPUT);
-    dht.begin();
+    
+    // Hardware Init
+    pinMode(PIN_ONBOARD_LED, OUTPUT);
+    pinMode(PIN_PUMP, OUTPUT);
+    digitalWrite(PIN_PUMP, LOW); // Force Pump OFF on boot
 
-    // Init BLE
-    NimBLEDevice::init("SAGE_GARDEN"); // Device Name matching App
+    dht.begin();
+    
+    strip.begin();
+    strip.setBrightness(BRIGHTNESS);
+    strip.show(); // Initialize all pixels to 'off'
+
+    // Load Credentials
+    loadConfig();
+
+    // BLE Init
+    NimBLEDevice::init("SAGE_GARDEN");
     pServer = NimBLEDevice::createServer();
     pServer->setCallbacks(new MyServerCallbacks());
-
     NimBLEService *pService = pServer->createService(SERVICE_UUID);
-
-    pTxCharacteristic = pService->createCharacteristic(
-                                CHARACTERISTIC_UUID_TX,
-                                NIMBLE_PROPERTY_NOTIFY
-                            );
-
-    NimBLECharacteristic * pRxCharacteristic = pService->createCharacteristic(
-                                             CHARACTERISTIC_UUID_RX,
-                                             NIMBLE_PROPERTY_WRITE
-                                         );
-
+    pTxCharacteristic = pService->createCharacteristic(CHAR_UUID_TX, NIMBLE_PROPERTY_NOTIFY);
+    NimBLECharacteristic * pRxCharacteristic = pService->createCharacteristic(CHAR_UUID_RX, NIMBLE_PROPERTY_WRITE);
     pRxCharacteristic->setCallbacks(new MyCallbacks());
-
     pService->start();
     NimBLEAdvertising *pAdvertising = NimBLEDevice::getAdvertising();
     pAdvertising->addServiceUUID(SERVICE_UUID);
     pAdvertising->setScanResponse(true);
     pAdvertising->start();
 
-    Serial.println("Waiting for a client connection to notify...");
+    Serial.println("System Ready. Waiting for BLE or WiFi...");
+    
+    // Try auto-connect if configured
+    if (wifiSSID != "" && wifiPassword != "") {
+        connectToWiFi();
+    }
 }
 
+// --- MAIN LOOP ---
 void loop() {
-    // 1. Handle BLE Connection State
+    // 1. Save Config if pending
+    if (shouldSaveConfig) {
+        saveConfig();
+        connectToWiFi();
+    }
+
+    // 2. BLE Re-advertising logic
     if (!deviceConnected && oldDeviceConnected) {
-        delay(500); // give the bluetooth stack the chance to get things ready
-        pServer->startAdvertising(); // restart advertising
-        Serial.println("start advertising");
+        delay(500);
+        pServer->startAdvertising(); 
+        Serial.println("Restarting Advertising");
         oldDeviceConnected = deviceConnected;
     }
     if (deviceConnected && !oldDeviceConnected) {
-        // do stuff here on connecting
         oldDeviceConnected = deviceConnected;
     }
 
-    // 2. Handle WiFi Connection Trigger
-    if (wifiConfigured && WiFi.status() != WL_CONNECTED) {
-        connectToWiFi();
-        wifiConfigured = false; // Reset trigger
-    }
-
-    // 3. Main Loop: Read Sensors & Send Data
-    if (WiFi.status() == WL_CONNECTED) {
-        delay(5000); // Send data every 5 seconds
-
+    // 3. Normal Operation
+    if (WiFi.status() == WL_CONNECTED && apiUrl != "" && deviceToken != "") {
+        
+        // Read Sensors
         float h = dht.readHumidity();
-        float t = dht.readTemperature(); // Celsius
-        int soil = analogRead(SOIL_PIN);
-        // Map soil (0-4095) to percentage (0-100). Adjust min/max based on calibration.
-        // Assuming 4095 is dry and 0 is wet, or vice versa. Usually capacitive is inverse.
-        int soilPercent = map(soil, 4095, 2000, 0, 100); 
+        float t = dht.readTemperature(); 
+        int soilRaw = analogRead(PIN_SOIL);
+        int soilPercent = map(soilRaw, 4095, 2000, 0, 100); 
         soilPercent = constrain(soilPercent, 0, 100);
 
-        if (isnan(h) || isnan(t)) {
-            Serial.println(F("Failed to read from DHT sensor!"));
-            return;
-        }
+        if (isnan(h) || isnan(t)) Serial.println("Failed to read DHT!");
 
-        // Prepare JSON payload
-        StaticJsonDocument<200> doc;
-        // Use MAC Address as unique Device ID
-        doc["device_id"] = "SAGE_GARDEN_" + WiFi.macAddress(); 
+        // Create Payload
+        StaticJsonDocument<512> doc;
         doc["temperature"] = t;
         doc["humidity"] = h;
         doc["soil_moisture"] = soilPercent;
+        // Optionally send MAC if needed for duplicate checks, but Token is primary
+        doc["mac_address"] = WiFi.macAddress();
 
         String jsonOutput;
         serializeJson(doc, jsonOutput);
 
-        // HTTP POST
+        // Send POST
         HTTPClient http;
-        http.begin(api_url);
+        http.begin(apiUrl);
         http.addHeader("Content-Type", "application/json");
+        http.addHeader("Authorization", "Bearer " + deviceToken); 
+        
         int httpResponseCode = http.POST(jsonOutput);
 
         if (httpResponseCode > 0) {
             String response = http.getString();
-            Serial.println(httpResponseCode);
-            Serial.println(response);
-            digitalWrite(LED_PIN, HIGH); delay(100); digitalWrite(LED_PIN, LOW); // Blink on success
+            Serial.println("Data Sent. Response: " + response);
+            
+            // Check for Commands in Response
+            // Response format: {"success":true,"command":{"command":"PUMP_ON",...}}
+            StaticJsonDocument<512> respDoc;
+            deserializeJson(respDoc, response);
+            
+            if (respDoc.containsKey("command") && !respDoc["command"].isNull()) {
+                String cmd = respDoc["command"]["command"];
+                Serial.println("Executing Command: " + cmd);
+                
+                if (cmd == "PUMP_ON") setPump(true);
+                else if (cmd == "PUMP_OFF") setPump(false);
+                else if (cmd == "LED_ON") setLeds(true);
+                else if (cmd == "LED_OFF") setLeds(false);
+            }
+
+            // Blink Onboard LED to indicate data sent
+            digitalWrite(PIN_ONBOARD_LED, HIGH); delay(100); digitalWrite(PIN_ONBOARD_LED, LOW);
         } else {
-            Serial.print("Error on sending POST: ");
+            Serial.print("Error sending data: ");
             Serial.println(httpResponseCode);
         }
         http.end();
+
+        delay(5000); // 5 Seconds Interval
+    } else {
+        // Not connected logic
+        delay(1000);
     }
 }
