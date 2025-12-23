@@ -85,7 +85,7 @@ export function ChartAreaInteractive({ initialData = [], referenceTime }: { init
 
     readings.forEach((reading) => {
       // Access timestamp safely
-      const ts = reading.timestamp
+      const ts = reading.created_at
       if (!ts) return
 
       const date = new Date(ts).toISOString().split('T')[0]
