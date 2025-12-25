@@ -3,6 +3,7 @@
 
 import * as React from "react"
 import {
+  IconBell,
   IconChartBar,
   IconDashboard,
   IconFolder,
@@ -41,41 +42,16 @@ const data = {
       icon: IconDashboard,
     },
     {
-      title: "Lifecycle",
+      title: "Notifications",
       url: "#",
-      icon: IconListDetails,
-    },
-    {
-      title: "Analytics",
-      url: "#",
-      icon: IconChartBar,
-    },
-    {
-      title: "Projects",
-      url: "#",
-      icon: IconFolder,
-    },
-    {
-      title: "Team",
-      url: "#",
-      icon: IconUsers,
-    },
+      icon: IconBell,
+    }
   ],
   navSecondary: [
     {
       title: "Settings",
       url: "#",
       icon: IconSettings,
-    },
-    {
-      title: "Get Help",
-      url: "#",
-      icon: IconHelp,
-    },
-    {
-      title: "Search",
-      url: "#",
-      icon: IconSearch,
     },
   ],
 }
