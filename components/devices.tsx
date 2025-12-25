@@ -10,7 +10,7 @@ export default async function Devices() {
     const { data: all_readings, error } = await supabase
         .from("sensor_readings")
         .select("*")
-        .order('timestamp', { ascending: false });
+        .order('created_at', { ascending: false });
 
     if (error) {
         return (
@@ -83,7 +83,7 @@ export default async function Devices() {
 
                                 <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2 text-slate-400 text-[10px] font-medium uppercase tracking-tight">
                                     <Clock className="h-3 w-3" />
-                                    Last Sync: {new Date(reading.timestamp || reading.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    Last Sync: {new Date(reading.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </div>
                             </CardContent>
                         </Card>
