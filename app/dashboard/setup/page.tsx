@@ -1,4 +1,4 @@
-import { BluetoothSetup } from "@/components/bluetooth-setup"
+import { BluetoothSetup } from "@/components/setup"
 import {
     SidebarInset,
     SidebarProvider,

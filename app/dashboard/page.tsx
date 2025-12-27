@@ -9,7 +9,7 @@ import {
 import { createClient } from "@/lib/supabase/server"
 
 import { cookies } from "next/headers"
-import DashboardDevices from "@/components/devices"
+import Devices from "@/components/devices"
 
 // export means to make this function available to other files async means to make this function wait for something to finish
 export default async function Page() {
@@ -52,9 +52,7 @@ export default async function Page() {
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
             <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-              <DashboardDevices />
-
-
+              <Devices />
             </div>
           </div>
         </div>

@@ -7,14 +7,14 @@ import { ChevronLeft, Thermometer, Droplets, Lightbulb, Wind } from "lucide-reac
 
 export default async function DevicePage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient();
-    const { id } = await params; 
+    const { id } = await params;
     const decodedName = decodeURIComponent(id);
 
     // 1. Fetch latest data for the big stat cards
     const { data: latestReading, error } = await supabase
         .from("sensor_readings")
         .select("*")
-        .or(`id.eq.${id},device_name.eq.${decodedName}`)
+        .eq("device_name", decodedName)
         .order("created_at", { ascending: false })
         .limit(1)
         .single();
@@ -32,7 +32,7 @@ export default async function DevicePage({ params }: { params: Promise<{ id: str
     const { data: history } = await supabase
         .from("sensor_readings")
         .select("*")
-        .eq("device_name", latestReading.device_name)
+        .eq("device_name", decodedName)
         .order("created_at", { ascending: false })
         .limit(50);
 
@@ -45,7 +45,7 @@ export default async function DevicePage({ params }: { params: Promise<{ id: str
             <div className="flex justify-between items-end">
                 <div>
                     <h1 className="text-4xl font-black text-slate-900 tracking-tight">{latestReading.device_name}</h1>
-                    <p className="text-slate-500 font-medium italic">System Status: <span className="text-green-600 font-bold">Active</span></p>
+                    <p className="text-slate-500 font-medium italic">Plant Health: <span className="text-green-600 font-bold">Healthy</span></p>
                 </div>
             </div>
 

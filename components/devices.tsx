@@ -41,7 +41,7 @@ export default async function Devices() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {/* 4. Map over the UNIQUE readings instead of ALL readings */}
                 {unique_readings.map((reading) => (
-                    <Link href={`/devices/${reading.id}`} key={reading.id}>
+                    <Link href={`/devices/${reading.device_name}`} key={reading.device_name}>
                         <Card className="overflow-hidden border-none shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 cursor-pointer bg-white">
                             <CardHeader className="pb-2">
                                 <CardTitle className="text-xl font-bold flex items-center justify-between text-slate-700">
