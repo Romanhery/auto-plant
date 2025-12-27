@@ -248,9 +248,9 @@ void loop() {
         StaticJsonDocument<512> doc;
         doc["temperature"] = t;
         doc["humidity"] = h;
-        doc["moisture"] = soilPercent;
+        doc["soil_moisture"] = soilPercent;
         // Optionally send MAC if needed for duplicate checks, but Token is primary
-        doc["device_name"] = WiFi.macAddress();
+        doc["mac_address"] = WiFi.macAddress();
 
         String jsonOutput;
         serializeJson(doc, jsonOutput);
