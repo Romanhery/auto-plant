@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     if (mac_address) {
       const { data: devices } = await supabase
         .from('devices')
-        .select('*')
+        .select('*, current_command') // explicitly select current_command
         .eq('mac_address', mac_address)
         .maybeSingle()
       device = devices
@@ -24,16 +24,16 @@ export async function POST(request: NextRequest) {
     if (!device && device_name) {
       const { data: devices } = await supabase
         .from('devices')
-        .select('*')
+        .select('*, current_command') // explicitly select current_command
         .eq('device_name', device_name)
         .maybeSingle()
       device = devices
     }
 
     if (!device) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Device not found' 
+      return NextResponse.json({
+        success: false,
+        error: 'Device not found'
       }, { status: 404 })
     }
 
@@ -55,18 +55,31 @@ export async function POST(request: NextRequest) {
       console.error('Error saving sensor reading:', insertError)
     }
 
-    // Check if auto mode is enabled
-    const autoMode = device.auto_mode || false
+    // Command Logic
     let command = null
 
-    if (autoMode) {
-      command = evaluateAutoMode({
-        moisture: soil_moisture,
-        temperature,
-        humidity,
-        light,
-        device
-      })
+    // 1. Priority: Manual Command (from current_command column)
+    if (device.current_command) {
+      command = { command: device.current_command }
+
+      // Clear the command so it only executes once
+      await supabase
+        .from('devices')
+        .update({ current_command: null })
+        .eq('id', device.id)
+    }
+    // 2. Fallback: Auto Mode
+    else {
+      const autoMode = device.auto_mode || false
+      if (autoMode) {
+        command = evaluateAutoMode({
+          moisture: soil_moisture,
+          temperature,
+          humidity,
+          light,
+          device
+        })
+      }
     }
 
     return NextResponse.json({
@@ -130,7 +143,7 @@ function evaluateAutoMode({
     // If no light sensor, use time-based control (grow lights on during day)
     const hour = new Date().getHours()
     const ledOn = device.led_state || false
-    
+
     // Turn LEDs on during 6 AM - 10 PM
     if (hour >= 6 && hour < 22 && !ledOn) {
       commands.push('LED_ON')

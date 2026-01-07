@@ -1,60 +1,71 @@
 "use client";
 
+import { Line } from "react-chartjs-2";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
+  Chart as ChartJS,
+  LineElement,
+  PointElement,
+  CategoryScale,
+  LinearScale,
   Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
+  Legend,
+} from "chart.js";
+
+ChartJS.register(LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend);
 
 interface HydroChartProps {
-  data: any[];
-  metric: "moisture" | "temperature" | "humidity" | "light";
-  color: string;
+  data: any[];          // Array of sensor readings
+  metric: string;       // e.g., "moisture", "temperature", "humidity", "light"
+  color: string;        // Line color
 }
 
 export default function HydroChart({ data, metric, color }: HydroChartProps) {
-  // We format the data here so the chart understands it
-  const chartData = data.map(d => ({
-    time: new Date(d.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    value: d[metric]
-  })).reverse(); // .reverse() makes the newest data appear on the right!
+  // Prepare the chart data
+  const labels = data
+    .slice()
+    .reverse()
+    .map((d) => new Date(d.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+
+  const chartData = {
+    labels,
+    datasets: [
+      {
+        label: metric,
+        data: data.slice().reverse().map((d) => d[metric]),
+        fill: true,
+        backgroundColor: `${color}33`, // transparent fill
+        borderColor: color,
+        tension: 0.4, // smooth curve
+        pointRadius: 2,
+      },
+    ],
+  };
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        mode: "index" as const,
+        intersect: false,
+      },
+    },
+    scales: {
+      x: {
+        ticks: { color: "#6b7280", font: { size: 10 } },
+        grid: { display: false },
+      },
+      y: {
+        ticks: { color: "#6b7280", font: { size: 10 } },
+        grid: { drawBorder: false, color: "#e5e7eb" },
+      },
+    },
+  };
 
   return (
-    <div className="h-[300px] w-full p-2">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-          <XAxis
-            dataKey="time"
-            fontSize={12}
-            tickLine={false}
-            axisLine={false}
-            stroke="#94a3b8"
-          />
-          <YAxis
-            fontSize={12}
-            tickLine={false}
-            axisLine={false}
-            stroke="#94a3b8"
-            unit="%"
-          />
-          <Tooltip
-            contentStyle={{ borderRadius: '15px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-          />
-          <Line
-            type="monotone"
-            dataKey="value"
-            stroke={color}
-            strokeWidth={3}
-            dot={{ r: 4, fill: color, strokeWidth: 2, stroke: '#fff' }}
-            activeDot={{ r: 6, strokeWidth: 0 }}
-          />
-        </LineChart>
-      </ResponsiveContainer>
+    <div className="w-full h-64 md:h-80">
+      <Line data={chartData} options={options} />
     </div>
   );
 }

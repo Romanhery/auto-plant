@@ -111,4 +111,4 @@ function StatCard({ icon, label, value, color }: { icon: any, label: string, val
             </div>
         </div>
     );
-}   
+}

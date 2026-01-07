@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { RealtimeListener } from "@/components/realtime-listener";
+import { ChatBot } from "@/components/chat-bot"; // Import the ChatBot component
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,6 +32,7 @@ export default function RootLayout({
       >
         <RealtimeListener />
         {children}
+        <ChatBot /> {/* Add the ChatBot widget here */}
       </body>
     </html>
   );

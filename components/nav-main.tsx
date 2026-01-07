@@ -1,8 +1,7 @@
 "use client"
 
-import { IconCirclePlusFilled, IconMail, type Icon } from "@tabler/icons-react"
-
-import { Button } from "@/components/ui/button"
+import { IconPlus, IconReceipt2, type Icon } from "@tabler/icons-react"
+import Link from "next/link"
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -11,50 +10,52 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 
-export function NavMain({
-  items,
-}: {
-  items: {
-    title: string
-    url: string
-    icon?: Icon
-  }[]
-}) {
+export function NavMain() {
   return (
     <SidebarGroup>
-      <SidebarGroupContent className="flex flex-col gap-2">
+      <SidebarGroupContent className="flex flex-col gap-3">
+
+        {/* BUTTON 1: PRIMARY - ADD DEVICE (CLEAN GREEN) */}
         <SidebarMenu>
-          <SidebarMenuItem className="flex items-center gap-2">
+          <SidebarMenuItem>
             <SidebarMenuButton
-              asChild
               tooltip="Add Device"
-              className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground min-w-8 duration-200 ease-linear"
+              className="h-10 bg-green-500 text-white hover:bg-green-600 hover:text-white"
             >
-              <a href="/setup">
-                <IconCirclePlusFilled />
-                <span>Add Device</span>
-              </a>
+              <Link href="/setup" className="flex items-center gap-3 px-1">
+                <IconPlus className="h-4 w-4 stroke-[3]" />
+                <span className="font-bold text-[13px] uppercase tracking-wider">Add Device</span>
+              </Link>
             </SidebarMenuButton>
-            <Button
-              size="icon"
-              className="size-8 group-data-[collapsible=icon]:opacity-0"
-              variant="outline"
-            >
-              <IconMail />
-              <span className="sr-only">Inbox</span>
-            </Button>
           </SidebarMenuItem>
         </SidebarMenu>
+
+        {/* BUTTON 2: SECONDARY - DASHBOARD (SOFT BLUE/CYAN) */}
         <SidebarMenu>
-          {items.map((item) => (
-            <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton tooltip={item.title}>
-                {item.icon && <item.icon />}
-                <span>{item.title}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip="Dashboard"
+            >
+              <Link href="/dashboard" className="flex items-center gap-3 px-1">
+                <span className="font-bold text-[13px] uppercase tracking-wider">Dashboard</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
+
+        {/* BUTTON 3: TERTIARY - CONTROLS (PURPLE) */}
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip="Controls"
+            >
+              <Link href="/controls" className="flex items-center gap-3 px-1">
+                <span className="font-bold text-[13px] uppercase tracking-wider">Controls</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+
       </SidebarGroupContent>
     </SidebarGroup>
   )
