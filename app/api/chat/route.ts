@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     const genAI = new GoogleGenerativeAI(apiKey);
     
     // UPDATED: Using "gemini-2.5-flash" as 1.5 is retired.
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-001" });
 
     // FIX: Sanitize History
     // Gemini history MUST start with a 'user' message.
