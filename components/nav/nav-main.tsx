@@ -23,7 +23,7 @@ export function NavMain() {
               className="h-10 bg-green-500 text-white hover:bg-green-600 hover:text-white"
             >
               <Link href="/setup" className="flex items-center gap-3 px-1">
-                <IconPlus className="h-4 w-4 stroke-[3]" />
+                <IconPlus className="h-4 w-4 stroke-3" />
                 <span className="font-bold text-[13px] uppercase tracking-wider">Add Device</span>
               </Link>
             </SidebarMenuButton>
@@ -55,6 +55,19 @@ export function NavMain() {
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
+
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip="Analyze"
+            >
+              <Link href="/analyze" className="flex items-center gap-3 px-1">
+                <span className="font-bold text-[13px] uppercase tracking-wider">Analyze</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+
 
       </SidebarGroupContent>
     </SidebarGroup>

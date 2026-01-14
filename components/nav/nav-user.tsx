@@ -29,10 +29,11 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 
+// We make 'user' optional with a default object to prevent ANY crash
 export function NavUser({
-  user,
+  user = { name: "Guest", email: "", avatar: "" },
 }: {
-  user: {
+  user?: {
     name: string
     email: string
     avatar: string
@@ -51,7 +52,10 @@ export function NavUser({
             >
               <Avatar className="h-8 w-8 rounded-lg grayscale">
                 <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                <AvatarFallback className="rounded-lg">
+                    {/* Shows first two letters of name as fallback */}
+                    {user.name?.substring(0, 2).toUpperCase() || "RS"}
+                </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{user.name}</span>
@@ -72,7 +76,9 @@ export function NavUser({
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                  <AvatarFallback className="rounded-lg">
+                    {user.name?.substring(0, 2).toUpperCase() || "RS"}
+                  </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{user.name}</span>
@@ -85,26 +91,22 @@ export function NavUser({
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem>
-                <IconUserCircle />
+                <IconUserCircle className="mr-2 size-4" />
                 Account
               </DropdownMenuItem>
               <DropdownMenuItem>
-                <IconCreditCard />
+                <IconCreditCard className="mr-2 size-4" />
                 Billing
               </DropdownMenuItem>
               <DropdownMenuItem>
-                <IconNotification />
+                <IconNotification className="mr-2 size-4" />
                 Notifications
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <form action="/account/signout" method="post" className="w-full cursor-pointer">
-                <button type="submit" className="flex w-full items-center gap-2">
-                  <IconLogout />
-                  Log out
-                </button>
-              </form>
+            <DropdownMenuItem className="text-red-600 focus:text-red-600 cursor-pointer">
+                <IconLogout className="mr-2 size-4" />
+                Log out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

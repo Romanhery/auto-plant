@@ -38,12 +38,6 @@ export default async function DevicePage({ params }: { params: Promise<{ id: str
 
     return (
         <div className="p-6 max-w-6xl mx-auto space-y-6 bg-slate-50 min-h-screen">
-            <Link href="/dashboard" className="flex items-center text-green-600 hover:text-green-700 font-bold transition-all">
-                <ChevronLeft className="w-5 h-5" /> Back to Dashboard
-            </Link>
-            <Link href="/controls" className="flex items-center text-green-600 hover:text-green-700 font-bold transition-all">
-                <ChevronRight className="w-5 h-5" />Controls
-            </Link>
 
             <div className="flex justify-between items-end">
                 <div>
