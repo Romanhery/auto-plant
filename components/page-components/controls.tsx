@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
-import { Zap, ZapOff, Loader2, Droplets } from 'lucide-react'
+import { Zap, ZapOff, Loader2, Droplets, Link, ChevronRight, ChevronLeft } from 'lucide-react'
 import { sendCommand } from '@/app/devices/[id]/actions'
 // import { toast } from 'sonner' // Assuming sonner is used, or basic alert
 
@@ -61,7 +61,6 @@ export default function Controls() {
     return (
         <div className="max-w-2xl mx-auto p-4 md:p-8">
             <div className="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden">
-
                 {/* Header Section */}
                 <div className="bg-slate-900 p-8 text-white relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-green-500 rounded-full blur-3xl opacity-20 -mr-16 -mt-16 pointer-events-none"></div>

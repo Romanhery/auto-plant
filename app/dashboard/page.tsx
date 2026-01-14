@@ -1,10 +1,10 @@
-import { AppSidebar } from "@/components/app-sidebar"
+import { AppSidebar } from "@/components/nav/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { createClient } from "@/lib/supabase/server"
 import { cookies } from "next/headers"
-import Devices from "@/components/devices"
-import BottomNav from "@/components/bottom-nav"
+import Devices from "@/components/page-components/devices"
+import BottomNav from "@/components/nav/bottom-nav"
 
 export default async function Page() {
   const cookieStore = await cookies()

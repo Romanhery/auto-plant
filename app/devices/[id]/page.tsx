@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import HydroChart from "@/components/HydroChart"; // Using your new simpler chart
-import { ChevronLeft, Thermometer, Droplets, Lightbulb, Wind } from "lucide-react";
+import { ChevronLeft, Thermometer, Droplets, Lightbulb, Wind, ChevronRight } from "lucide-react";
 
 export default async function DevicePage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient();
@@ -40,6 +40,9 @@ export default async function DevicePage({ params }: { params: Promise<{ id: str
         <div className="p-6 max-w-6xl mx-auto space-y-6 bg-slate-50 min-h-screen">
             <Link href="/dashboard" className="flex items-center text-green-600 hover:text-green-700 font-bold transition-all">
                 <ChevronLeft className="w-5 h-5" /> Back to Dashboard
+            </Link>
+            <Link href="/controls" className="flex items-center text-green-600 hover:text-green-700 font-bold transition-all">
+                <ChevronRight className="w-5 h-5" />Controls
             </Link>
 
             <div className="flex justify-between items-end">
