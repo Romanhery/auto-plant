@@ -1,0 +1,34 @@
+Esp32 Wiring for the whole project
+
+--------------------------------------
+DHT22 Temperature and Humidity Sensor
+-------------------------------------
+GND (-) -> GND negative on esp32
+VCC (+) -> 3.3v on esp32
+OUT -> PIN 27
+-------------------------------------
+
+-------------------------------------
+CAPACITIVE SOIL MOISTURE SENSOR
+-------------------------------------
+VCC (+) -> 3.3v
+GND (-) -> GND
+AOUT -> PIN 32
+-------------------------------------
+
+-------------------------------------
+5v DC WATER PUMP & MOSFET & BATTERY
+-------------------------------------
+Battery's (+) -> VIN+
+Battery's (-) -> VIN-
+
+Pump's (+) -> OUT+
+Pump's (-) -> OUT-
+
+Mosfet's GND (-) -> GND
+Mosfet's trig pin -> PIN 18
+------------------------------------------------
+
+
+
+
