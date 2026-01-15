@@ -1,0 +1,63 @@
+import cv2
+import time
+from supabase import create_client, Client
+
+# ================= CONFIGURATION =================
+SUPABASE_URL = "https://juaaocqwwczwoiphiphj.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp1YWFvY3F3d2N6d29pcGhpcGhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwMTcxOTEsImV4cCI6MjA3OTU5MzE5MX0.0MQxvseTj797AU0KLbOS9bug31g2mkoIj1GdUml3LvQ"
+BUCKET_NAME = "plant-images"
+FILE_NAME = "current_plant.jpg"
+
+# Initialize Supabase
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+def upload_frame_to_supabase(frame):
+    print(" ☁️  Connecting to Supabase...")
+    
+    # 1. Compress Image to JPEG (Simulates the ESP32 Camera quality)
+    # quality=50 mimics the compressed stream from the microcontroller
+    success, encoded_image = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 50])
+    
+    if not success:
+        print("❌ Failed to encode image.")
+        return
+
+    # Convert to bytes
+    image_bytes = encoded_image.tobytes()
+
+    # 2. Upload to Storage (Overwriting the old file)
+    try:
+        response = supabase.storage.from_(BUCKET_NAME).upload(
+            path=FILE_NAME,
+            file=image_bytes,
+            file_options={"content-type": "image/jpeg", "upsert": "true"}
+        )
+        print(" ✅ Upload Successful! Image is now in the cloud.")
+        print(f" 🔗 URL: {SUPABASE_URL}/storage/v1/object/public/{BUCKET_NAME}/{FILE_NAME}")
+        
+    except Exception as e:
+        print(f" ❌ Upload Failed: {e}")
+
+# ================= MAIN LOOP =================
+cap = cv2.VideoCapture(0) # Open Laptop Webcam
+
+print("🤖 VIRTUAL ESP32 ONLINE.")
+print("Press 'SPACE' to Snap & Upload. Press 'q' to Quit.")
+
+while True:
+    ret, frame = cap.read()
+    if not ret: break
+    
+    cv2.imshow("Simulated ESP32 View", frame)
+    key = cv2.waitKey(1)
+    
+    if key == ord(' '): # Spacebar pressed
+        print("\n📸 Snap! Taking picture...")
+        upload_frame_to_supabase(frame)
+        print("----------------------------------\n")
+
+    elif key == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
