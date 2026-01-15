@@ -1,0 +1,87 @@
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from "next/server";
+
+export async function POST(req: Request) {
+  console.log("🚀 STARTING SIMPLE ANALYSIS...");
+
+  try {
+    // 1. SETUP & CHECKS
+    const apiKey = process.env.GEMINI_API_KEY;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    
+    // CRITICAL FIX: Prioritize Service Role Key to bypass RLS permissions
+    // If you only use ANON_KEY, the update will likely be blocked by database policies.
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!apiKey || !supabaseUrl || !supabaseKey) {
+      return NextResponse.json({ error: "Missing API Keys" }, { status: 500 });
+    }
+
+    // 2. FETCH IMAGE
+    const baseUrl = supabaseUrl.startsWith("http") ? supabaseUrl : `https://${supabaseUrl}`;
+    const imageUrl = `${baseUrl}/storage/v1/object/public/plant-images/current_plant.jpg?t=${Date.now()}`;
+    
+    console.log("📷 Fetching:", imageUrl);
+    const imageResp = await fetch(imageUrl);
+    
+    if (!imageResp.ok) throw new Error("Failed to fetch image from Supabase");
+
+    const arrayBuffer = await imageResp.arrayBuffer();
+    const base64Image = Buffer.from(arrayBuffer).toString("base64");
+
+    // 3. ASK GEMINI FOR THE COMMAND ONLY
+    const genAI = new GoogleGenerativeAI(apiKey);
+    
+    // REMINDER: You MUST change this to "gemini-1.5-flash" or it will crash.
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite-preview-09-2025" }); 
+
+    const prompt = `Look at this plant.
+    - If the plant looks dry, dying, or needs water/care, output exactly: "true"
+    - If the plant looks healthy and needs nothing, output exactly: "false"
+    - Output NOTHING else. No JSON, no markdown, just the word.`;
+
+    const result = await model.generateContent([
+      prompt,
+      { inlineData: { data: base64Image, mimeType: "image/jpeg" } },
+    ]);
+
+    // Safety Fix: Check if Gemini actually returned text
+    let command = "false";
+    if (result.response && result.response.candidates && result.response.candidates[0].content) {
+         command = result.response.text().trim().toLowerCase().replace(/"/g, "");
+    } else {
+        console.log("⚠️ Gemini response was blocked or empty. Defaulting to false.");
+    }
+    
+    const validCommand = (command === "true" || command === "false") ? command : "false";
+    console.log("🤖 Gemini Command:", validCommand);
+
+    // 4. UPDATE SUPABASE
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const { error, data } = await supabase
+      .from("devices") 
+      .update({ current_command: validCommand })
+      .eq("id", "5a768c3f-b6df-4d42-a414-55bc8345e052") // Ensure your row ID is actually 1
+      .select(); // .select() helps debug if the update actually happened
+
+    if (error) {
+      console.error("❌ Database Error:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    
+    // Check if a row was actually found and updated
+    if (data && data.length === 0) {
+        console.warn("⚠️ Success, but NO rows were updated. Check if ID 1 exists.");
+    }
+
+    console.log("✅ Supabase Updated!");
+
+    return NextResponse.json({ command: validCommand });
+
+  } catch (error: any) {
+    console.error("🔥 SERVER ERROR:", error.message);
+    return NextResponse.json({ error: "Server crashed", details: error.message }, { status: 500 });
+  }
+}
