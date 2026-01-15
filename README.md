@@ -1,1 +1,1 @@
-# auto-plant
+This takes a picture using your computers webcam using the pythons script. It uploads the image into supabase. When its in supabase then the user clicks on the analyze button. The api gets the image and the current data for the plant. Sends it to the gemini model. It gets the answer strictly true or false. Then the pump turns on or not depending on the plants state.
