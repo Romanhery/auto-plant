@@ -1,0 +1,188 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+#include <WiFiManager.h> 
+#include "DHT.h"
+#include <Adafruit_NeoPixel.h>
+#include <time.h> 
+
+// Hardware Pins
+#define DHTPIN 27
+#define DHTTYPE DHT22
+#define SOIL_PIN 32
+#define PUMP_PIN 18 
+#define LED_PIN 2
+#define NUM_LEDS 30
+
+// Power Management Constants
+#define uS_TO_S_FACTOR 1000000ULL  
+#define NIGHT_SLEEP_SECONDS 1800   /* Sleep for 30 mins at night */
+#define DAY_CHECK_INTERVAL 900000  /* Wait 15 mins during day (in ms) */
+
+// Time Settings
+int ledCycleHours = 12; 
+const char* ntpServer = "pool.ntp.org";
+const long gmtOffset_sec = -28800; // PST
+const int daylightOffset_sec = 3600;
+
+// Supabase Configuration
+const char* supabase_rpc_url = "https://juaaocqwwczwoiphiphj.supabase.co/rest/v1/rpc/add_secure_reading";
+const char* supabase_table_url = "https://juaaocqwwczwoiphiphj.supabase.co/rest/v1/devices?device_id=eq.PLANT_2&select=current_command,led_cycle";
+const char* supabase_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp1YWFvY3F3d2N6d29pcGhpcGhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwMTcxOTEsImV4cCI6MjA3OTU5MzE5MX0.0MQxvseTj797AU0KLbOS9bug31g2mkoIj1GdUml3LvQ";
+const char* device_id = "PLANT_2"; 
+const char* secret_key = "165648b7-614b-4a5d-93a2-a7b8879cd910"; 
+
+// Soil Sensor Calibration
+const int WET = 1800;
+const int DRY = 3000;
+
+DHT dht(DHTPIN, DHTTYPE);
+Adafruit_NeoPixel strip(NUM_LEDS, LED_PIN, NEO_GRB + NEO_KHZ800);
+
+// Prototypes
+void sendSensorData(int moisture, float temp, float humidity);
+bool checkPumpStatus();
+void colorWipe(uint32_t color, int wait);
+
+void setup() {
+  Serial.begin(115200);
+  Serial.println("\n--- SYSTEM BOOT ---");
+  
+  pinMode(PUMP_PIN, OUTPUT);
+  digitalWrite(PUMP_PIN, LOW); 
+  
+  dht.begin();
+  strip.begin();
+  strip.setBrightness(30);
+  strip.show();
+
+  WiFiManager wm;
+  wm.setConfigPortalTimeout(180); 
+  if (!wm.autoConnect("PLANT_SETUP")) {
+    Serial.println("WiFi Portal Timeout - Restarting...");
+    ESP.restart();
+  }
+  Serial.println("✅ WiFi Connected");
+
+  // Synchronize internal clock with NTP
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+  
+  // Initialization Signal
+  colorWipe(strip.Color(0, 0, 255), 10);
+  delay(1000);
+  colorWipe(strip.Color(0, 0, 0), 0);
+}
+
+void loop() {
+  // 1. COLLECT AND SEND SENSOR DATA
+  int RAW = analogRead(SOIL_PIN); 
+  int moisturePercent = constrain(map(RAW, DRY, WET, 0, 100), 0, 100);
+  float h = dht.readHumidity(); 
+  float t = dht.readTemperature();
+
+  if (!isnan(h) && !isnan(t)) {
+    sendSensorData(moisturePercent, t, h);
+  } else {
+    Serial.println("⚠️ DHT Sensor Read Failed");
+  }
+
+  // 2. FETCH LATEST DATABASE COMMANDS
+  bool shouldPumpBeOn = checkPumpStatus();
+  
+  if (shouldPumpBeOn) {
+    Serial.println("💧 ACTION: Watering initiated via database command.");
+    digitalWrite(PUMP_PIN, HIGH);
+    delay(5000); // Run pump for 5 seconds
+    digitalWrite(PUMP_PIN, LOW);
+  }
+
+  // 3. APPLY SEASONAL TIME LOGIC
+  struct tm timeinfo;
+  if (getLocalTime(&timeinfo)) {
+    int currentHour = timeinfo.tm_hour;
+    Serial.print("🕒 Current Clock: "); Serial.print(currentHour); Serial.println(":00");
+    Serial.print("☀️ Seasonal Limit: "); Serial.print(ledCycleHours); Serial.println(" hours");
+
+    if (currentHour < ledCycleHours) {
+      // --- DAYTIME: Awake & Lighting ---
+      Serial.println("💡 DAY MODE: Lighting active. Checking again in 15 mins.");
+      colorWipe(strip.Color(200, 0, 255), 0); // Grow spectrum (Purple/Pink)
+      
+      delay(DAY_CHECK_INTERVAL); 
+    } 
+    else {
+      // --- NIGHTTIME: Shutdown & Deep Sleep ---
+      Serial.println("🌑 NIGHT MODE: Shutting down system for Deep Sleep.");
+      
+      // Safety turn-off
+      colorWipe(strip.Color(0, 0, 0), 0);
+      digitalWrite(PUMP_PIN, LOW);
+      
+      esp_sleep_enable_timer_wakeup(NIGHT_SLEEP_SECONDS * uS_TO_S_FACTOR);
+      esp_deep_sleep_start();
+    }
+  } else {
+    Serial.println("❌ Time sync failed. Retrying in 1 min.");
+    delay(60000);
+  }
+}
+
+// --- NETWORK HELPER FUNCTIONS ---
+
+void sendSensorData(int moisture, float temp, float humidity) {
+    HTTPClient http;
+    http.begin(supabase_rpc_url);
+    http.addHeader("apikey", supabase_key);
+    http.addHeader("Authorization", String("Bearer ") + supabase_key);
+    http.addHeader("Content-Type", "application/json");
+
+    StaticJsonDocument<300> doc;
+    doc["p_device_id"] = device_id;
+    doc["p_secret_key"] = secret_key; 
+    doc["p_moisture"] = moisture;
+    doc["p_temp"] = temp; 
+    doc["p_humidity"] = humidity;
+    doc["p_light"] = 80;
+
+    String jsonPayload;
+    serializeJson(doc, jsonPayload);
+    int code = http.POST(jsonPayload);
+    Serial.print("📡 Supabase Data Upload. Status: "); Serial.println(code);
+    http.end();
+}
+
+bool checkPumpStatus() {
+  HTTPClient http;
+  http.begin(supabase_table_url);
+  http.addHeader("apikey", supabase_key);
+  http.addHeader("Authorization", String("Bearer ") + supabase_key);
+  
+  int httpCode = http.GET();
+  bool pumpState = false;
+
+  if (httpCode > 0) {
+    String payload = http.getString();
+    StaticJsonDocument<500> doc;
+    deserializeJson(doc, payload);
+
+    if (doc.size() > 0) {
+      String command = doc[0]["current_command"];
+      pumpState = (command == "true");
+
+      // Sync led_cycle column from Supabase
+      if (!doc[0]["led_cycle"].isNull()) {
+          ledCycleHours = doc[0]["led_cycle"].as<int>(); 
+      }
+    }
+  }
+  http.end();
+  return pumpState;
+}
+
+void colorWipe(uint32_t color, int wait) {
+  for(int i=0; i<strip.numPixels(); i++) { 
+    strip.setPixelColor(i, color);
+    if(wait > 0) { strip.show(); delay(wait); }
+  }
+  strip.show();
+}
